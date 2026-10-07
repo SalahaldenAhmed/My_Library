@@ -1,0 +1,23 @@
+# STM32CubeIDE build output
+**/Debug/
+**/Release/
+*.o
+*.d
+*.elf
+*.map
+*.su
+*.cyclo
+*.list
+*.bin
+*.hex
+
+# IDE / workspace files
+.metadata/
+.settings/
+*.launch
+.vscode/
+.idea/
+
+# OS junk
+Thumbs.db
+.DS_Store

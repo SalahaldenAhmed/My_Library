@@ -1,0 +1,70 @@
+#include <Arduino.h>
+#include <PS4Controller.h>
+
+#define RXD2 16   // ESP32 RX2  <- STM32 PB10 (USART3 TX)
+#define TXD2 17   // ESP32 TX2  -> STM32 PB11 (USART3 RX)
+
+#define DEADZONE         25
+#define MIN_INTERVAL_US  2000    // fastest: 600 us between steps
+#define MAX_INTERVAL_US   2000   // slowest: 2000 us between steps
+
+/*
+ * Frame (12 bytes):
+ * [0xAA][0x55][dir0][int0_H][int0_L][dir1][int1_H][int1_L][dir2][int2_H][int2_L][checksum]
+ * checksum = XOR of the 9 payload bytes (dir/int bytes)
+ * interval = 0 means "stop this axis"
+ */
+
+void mapStick(int stick, uint8_t &dir, uint16_t &interval) {
+  if (abs(stick) < DEADZONE) {
+    dir = 0;
+    interval = 0;
+    return;
+  }
+  dir = (stick > 0) ? 1 : 0;
+  int magnitude = min(abs(stick), 127);
+  interval = map(magnitude, DEADZONE, 127, MAX_INTERVAL_US, MIN_INTERVAL_US);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
+  PS4.begin();
+  Serial.println("Waiting for DualShock 4...");
+}
+
+void loop() {
+  if (PS4.isConnected()) {
+    uint8_t  dir[3];
+    uint16_t iv[3];
+
+    mapStick(PS4.RStickY(), dir[0], iv[0]);   // Axis 0: shoulder
+    mapStick(-PS4.LStickY(), dir[1], iv[1]);   // Axis 1: elbow
+    mapStick(-PS4.RStickX(), dir[2], iv[2]);   // Axis 2: base
+
+    uint8_t frame[12];
+    frame[0] = 0xAA;
+    frame[1] = 0x55;
+
+    uint8_t checksum = 0;
+    for (int i = 0; i < 3; i++) {
+      frame[2 + i * 3] = dir[i];
+      frame[3 + i * 3] = (iv[i] >> 8) & 0xFF;
+      frame[4 + i * 3] = iv[i] & 0xFF;
+    }
+    for (int k = 2; k < 11; k++) checksum ^= frame[k];
+    frame[11] = checksum;
+
+    Serial2.write(frame, 12);
+
+    static uint32_t lastDebug = 0;
+    if (millis() - lastDebug > 200) {
+      Serial.printf("Base d=%d i=%d | Shoulder d=%d i=%d | Elbow d=%d i=%d\n",
+                    dir[0], iv[0], dir[1], iv[1], dir[2], iv[2]);
+      lastDebug = millis();
+    }
+    delay(20);   // ~50 Hz
+  } else {
+    delay(200);  // no controller -> no frames -> STM32 failsafe stops motors
+  }
+}
