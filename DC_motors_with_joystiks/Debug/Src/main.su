@@ -1,0 +1,7 @@
+../Src/main.c:49:5:main	40	static
+../Src/main.c:114:13:Set_Motor_State	24	static
+../Src/main.c:139:17:ADC_ReadChannel	32	static
+../Src/main.c:163:6:SystemClock_Config	88	static
+../Src/main.c:210:13:MX_ADC1_Init	24	static
+../Src/main.c:257:13:MX_GPIO_Init	40	static
+../Src/main.c:316:6:Error_Handler	4	static,ignoring_inline_asm
